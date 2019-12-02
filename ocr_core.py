@@ -2,7 +2,7 @@
 try:
     from PIL import Image
 except ImportError:
-    import Image
+    a="a"
 import pytesseract
 #pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 def ocr_core(filename):
