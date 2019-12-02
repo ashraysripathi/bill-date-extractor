@@ -1,11 +1,27 @@
 import os
-from flask import Flask, render_template, request
+import subprocess
+import sys
+import logging
+import shutil
+from flask import Flask, jsonify, render_template, request
+from werkzeug import secure_filename
 import re
 from datetime import datetime
 
+app = Flask(__name__)
+app.logger.addHandler(logging.StreamHandler(sys.stdout))
+app.logger.setLevel(logging.ERROR)
+app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['TEMP_FOLDER'] = '/tmp'
+app.config['OCR_OUTPUT_FILE'] = 'ocr'
+app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024
+
+def allowed_file(filename):
+  return '.' in filename and filename.rsplit('.', 1)[1] in set(['png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff'])
+
 # import our OCR function
 from ocr_core import ocr_core
-
+UPLOAD_FOLDER = '/static/uploads/'
 #  our extract data function
 def getrawdate(ocr_dump_text):
     
@@ -54,26 +70,15 @@ def getdate(extracted_date):       #Its hard to recognize DD/MM/YY or MM/DD/YY i
     
     return my_date
 
-# define a folder to store and later serve the images
-UPLOAD_FOLDER = '/static/uploads/'
-
-# allow files of a specific type
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
-
-app = Flask(__name__)
-
-# function to check the file extension
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# route and function to handle the home page
 @app.route('/')
 def home_page():
     return render_template('index.html')
 
-# route and function to handle the upload page
-@app.route('/upload', methods=['GET', 'POST'])
+@app.route('/test', methods = ['GET'])
+def test():
+  return render_template('upload_form.html', landing_page = 'process')
+
+@app.route('/process', methods = ['GET','POST'])
 def upload_page():
     if request.method == 'POST':
         # check if there is a file in the request
@@ -99,4 +104,4 @@ def upload_page():
         return render_template('upload.html')
 
 if __name__ == '__main__':
-    app.run()
+  app.run(debug=True)
