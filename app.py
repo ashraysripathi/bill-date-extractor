@@ -74,11 +74,8 @@ def getdate(extracted_date):       #Its hard to recognize DD/MM/YY or MM/DD/YY i
 def home_page():
     return render_template('index.html')
 
-@app.route('/test', methods = ['GET'])
-def test():
-  return render_template('upload_form.html', landing_page = 'process')
 
-@app.route('/process', methods = ['GET','POST'])
+@app.route('/upload', methods = ['GET','POST'])
 def upload_page():
     if request.method == 'POST':
         # check if there is a file in the request
