@@ -1,2 +1,14 @@
 .DS_store
 *.pyc
+README.md
+Receipts-20191115T055557Z-001.zip
+Receipts/
+bill.code-workspace
+date_core.py
+images/
+secret-harbor-master.zip
+secret-harbor-master/
+testdate.py
+testfile.py
+upload.html
+venv/
