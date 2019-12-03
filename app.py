@@ -1,92 +1,102 @@
 import os
-import subprocess
-import sys
-import logging
-import shutil
-from flask import Flask, jsonify, render_template, request
-from werkzeug import secure_filename
+from flask import Flask, render_template, request
+import re
+from datetime import datetime
+
+# import our OCR function
+from ocr_core import ocr_core
+
+#  our extract data function
+def getrawdate(ocr_dump_text):
+    
+    ocr_dump_text=ocr_dump_text.upper()
+    extracted_date=""
+    try:                                                            
+        match = re.search(r'(\d{1,4}([.\-\\/])\d{1,2}([.\-\\/])\d{1,4})',ocr_dump_text)
+        extracted_date=match.group(1)
+    except:
+        extracted_date=ocr_dump_text    
+        try:
+            match = re.search(r'(\d{1,4}([.\-\\/])\D{1,3}([.\-\\/])\d{1,4})',ocr_dump_text)
+            extracted_date=match.group(1)
+        except:
+            extracted_date=ocr_dump_text  
+    extracted_date=extracted_date.replace("/","-")
+    extracted_date=extracted_date.replace("\\","-")
+    return extracted_date
+
+def getdate(extracted_date):       #Its hard to recognize DD/MM/YY or MM/DD/YY in some cases so it will assume dd/mm/yy unless values are outside expected range 
+    try:
+        my_date= datetime.strptime(extracted_date, "%d-%m-%Y")       
+    except:
+        
+        try:
+            my_date= datetime.strptime(extracted_date, "%d-%m-%y")       
+        except:
+            
+            try:
+                my_date= datetime.strptime(extracted_date, "%m-%d-%Y")       
+            except:
+                
+                try:
+                    my_date= datetime.strptime(extracted_date, "%m-%d-%y")       
+                except:
+                    
+                    try:
+                        my_date= datetime.strptime(extracted_date, "%d-%b-%Y")       
+                    except:
+                        
+                        try:
+                            my_date= datetime.strptime(extracted_date, "%d-%b-%y")       
+                        except:
+                            my_date="null"
+            
+    
+    return my_date
+
+# define a folder to store and later serve the images
+UPLOAD_FOLDER = '/static/uploads/'
+
+# allow files of a specific type
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
 app = Flask(__name__)
-app.logger.addHandler(logging.StreamHandler(sys.stdout))
-app.logger.setLevel(logging.ERROR)
-app.config['PROPAGATE_EXCEPTIONS'] = True
-app.config['TEMP_FOLDER'] = '/tmp'
-app.config['OCR_OUTPUT_FILE'] = 'ocr'
-app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024
 
+# function to check the file extension
 def allowed_file(filename):
-  return '.' in filename and filename.rsplit('.', 1)[1] in set(['png', 'jpg', 'jpeg', 'gif', 'tif', 'tiff'])
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.errorhandler(404)
-def not_found(error):
-  resp = jsonify( { 
-    u'status': 404, 
-    u'message': u'Resource not found' 
-  } )
-  resp.status_code = 404
-  return resp
-
+# route and function to handle the home page
 @app.route('/')
-def api_root():
-  resp = jsonify( { 
-    u'status': 200, 
-    u'message': u'Welcome to our secret APIs' 
-  } )
-  resp.status_code = 200
-  return resp
+def home_page():
+    return render_template('index.html')
 
-@app.route('/test', methods = ['GET'])
-def test():
-  return render_template('upload_form.html', landing_page = 'process')
+# route and function to handle the upload page
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_page():
+    if request.method == 'POST':
+        # check if there is a file in the request
+        if 'file' not in request.files:
+            return render_template('upload.html', msg='No file selected')
+        file = request.files['file']
+        # if no file is selected
+        if file.filename == '':
+            return render_template('upload.html', msg='No file selected')
 
-@app.route('/process', methods = ['GET','POST'])
-def process():
-  if request.method == 'POST':
-    file = request.files['file']
-    hocr = request.form.get('hocr') or ''
-    ext = '.hocr' if hocr else '.txt'
-    if file and allowed_file(file.filename):
-      folder = os.path.join(app.config['TEMP_FOLDER'], str(os.getpid()))
-      os.mkdir(folder)
-      input_file = os.path.join(folder, secure_filename(file.filename))
-      output_file = os.path.join(folder, app.config['OCR_OUTPUT_FILE'])
-      file.save(input_file)
+        if file and allowed_file(file.filename):
 
-      command = ['tesseract', input_file, output_file, '-l', request.form['lang'], hocr]
-      proc = subprocess.Popen(command, stderr=subprocess.PIPE)
-      proc.wait()
-
-      output_file += ext
-
-      if os.path.isfile(output_file):
-        f = open(output_file)
-        resp = jsonify( {
-          u'status': 200,
-          u'ocr':{k:v.decode('utf-8') for k,v in enumerate(f.read().splitlines())}
-        } )
-      else:
-        resp = jsonify( {
-          u'status': 422,
-          u'message': u'Unprocessable Entity'
-        } )
-        resp.status_code = 422
-
-      shutil.rmtree(folder)
-      return resp
-    else:
-      resp = jsonify( { 
-        u'status': 415,
-        u'message': u'Unsupported Media Type' 
-      } )
-      resp.status_code = 415
-      return resp
-  else:
-    resp = jsonify( { 
-      u'status': 405, 
-      u'message': u'The method is not allowed for the requested URL' 
-    } )
-    resp.status_code = 405
-    return resp
+            # call the OCR function on it
+            ocr_dump_text = ocr_core(file)
+            extracted_date=getrawdate(ocr_dump_text)
+            extracted_text=getdate(extracted_date).date()
+            # extract the text and display it
+            return render_template('upload.html',
+                                   msg='Successfully processed',
+                                   extracted_text=extracted_text,
+                                   img_src=UPLOAD_FOLDER + file.filename)
+    elif request.method == 'GET':
+        return render_template('upload.html')
 
 if __name__ == '__main__':
-  app.run(debug=True)
+    app.run()
