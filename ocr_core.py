@@ -4,7 +4,7 @@ try:
 except ImportError:
     a="a"
 import pytesseract
-pytesseract.pytesseract.tesseract_cmd = '/app/.apt/usr/bin/tesseract'
+#pytesseract.pytesseract.tesseract_cmd = '/app/.apt/usr/bin/tesseract'
 def ocr_core(filename):
     """
     This function will handle the core OCR processing of images.
