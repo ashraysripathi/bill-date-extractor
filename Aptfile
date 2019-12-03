@@ -3,3 +3,7 @@ http://http.us.debian.org/debian/pool/main/libp/libpng/libpng12-0_1.2.50-2+deb8u
 tesseract-ocr
 tesseract-ocr-eng 
 tesseract-ocr-eng
+libpng12-dev
+libjpeg62-dev
+libtiff4-dev
+libopencv-dev libtesseract-dev
